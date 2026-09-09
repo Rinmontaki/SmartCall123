@@ -1,0 +1,31 @@
+# Entorno virtual
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Variables de entorno
+.env
+.env.*
+
+# VS Code
+.vscode/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs
+*.log
+
+# Build
+build/
+dist/
+*.egg-info/
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
