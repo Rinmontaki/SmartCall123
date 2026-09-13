@@ -1,0 +1,295 @@
+import unittest
+from typing import Any
+
+from models.llamada import EstadoLlamada, Llamada, Prioridad
+from models.operacion import TipoOperacion
+from services.gestor_llamadas import GestorLlamadas
+
+
+class TestGestorLlamadas(unittest.TestCase):
+    """
+    Pruebas unitarias del servicio principal
+    de gestión de llamadas de SmartCall 123.
+    """
+
+    def setUp(self) -> None:
+        """
+        Crea un gestor nuevo antes de ejecutar cada test.
+
+        Esto garantiza que cada prueba sea independiente
+        y no comparta datos con las demás.
+        """
+        self.gestor = GestorLlamadas()
+
+    def registrar_llamada(
+        self,
+        **cambios: Any
+    ) -> Llamada:
+        """
+        Registra una llamada válida utilizando valores
+        predeterminados.
+
+        Los valores pueden modificarse mediante **cambios
+        para probar diferentes escenarios.
+        """
+
+        datos = {
+            "tipo": "Reporte general",
+            "ubicacion": "Popayán",
+            "descripcion": "Situación reportada al 123",
+            "personas_afectadas": 1,
+            "consciente": True,
+            "respira": True,
+            "heridos": False,
+            "peligro_inmediato": False,
+            "riesgo_potencial": False,
+        }
+
+        datos.update(cambios)
+
+        return self.gestor.registrar_llamada(**datos)
+
+    def test_gestor_inicia_con_colas_vacias(self) -> None:
+        self.assertTrue(
+            self.gestor.cola_p1.esta_vacia()
+        )
+
+        self.assertTrue(
+            self.gestor.cola_p2.esta_vacia()
+        )
+
+        self.assertTrue(
+            self.gestor.cola_p3.esta_vacia()
+        )
+
+    def test_registro_genera_identificadores_secuenciales(
+        self
+    ) -> None:
+        primera = self.registrar_llamada()
+        segunda = self.registrar_llamada()
+
+        self.assertEqual(
+            primera.id_llamada,
+            "L001"
+        )
+
+        self.assertEqual(
+            segunda.id_llamada,
+            "L002"
+        )
+
+    def test_registro_coloca_llamada_critica_en_p1(
+        self
+    ) -> None:
+        llamada = self.registrar_llamada(
+            peligro_inmediato=True
+        )
+
+        self.assertEqual(
+            llamada.prioridad,
+            Prioridad.CRITICA
+        )
+
+        self.assertEqual(
+            self.gestor.cola_p1.tamano(),
+            1
+        )
+
+    def test_registro_coloca_llamada_alta_en_p2(
+        self
+    ) -> None:
+        llamada = self.registrar_llamada(
+            heridos=True
+        )
+
+        self.assertEqual(
+            llamada.prioridad,
+            Prioridad.ALTA
+        )
+
+        self.assertEqual(
+            self.gestor.cola_p2.tamano(),
+            1
+        )
+
+    def test_registro_coloca_llamada_normal_en_p3(
+        self
+    ) -> None:
+        llamada = self.registrar_llamada()
+
+        self.assertEqual(
+            llamada.prioridad,
+            Prioridad.NORMAL
+        )
+
+        self.assertEqual(
+            self.gestor.cola_p3.tamano(),
+            1
+        )
+
+    def test_llamada_registrada_queda_en_espera(
+        self
+    ) -> None:
+        llamada = self.registrar_llamada()
+
+        self.assertEqual(
+            llamada.estado,
+            EstadoLlamada.EN_ESPERA
+        )
+
+    def test_registro_se_guarda_en_pila_de_operaciones(
+        self
+    ) -> None:
+        llamada = self.registrar_llamada()
+
+        operacion = (
+            self.gestor
+            .pila_operaciones
+            .ver_tope()
+        )
+
+        self.assertEqual(
+            operacion.tipo,
+            TipoOperacion.REGISTRAR
+        )
+
+        self.assertEqual(
+            operacion.id_llamada,
+            llamada.id_llamada
+        )
+
+    def test_siguiente_llamada_respeta_prioridad(
+        self
+    ) -> None:
+        # P3
+        self.registrar_llamada()
+
+        # P2
+        self.registrar_llamada(
+            heridos=True
+        )
+
+        # P1
+        llamada_p1 = self.registrar_llamada(
+            peligro_inmediato=True
+        )
+
+        siguiente = (
+            self.gestor
+            .obtener_siguiente_llamada()
+        )
+
+        if siguiente is None:
+            self.fail(
+                "Se esperaba una siguiente llamada."
+            )
+
+        self.assertEqual(
+            siguiente.id_llamada,
+            llamada_p1.id_llamada
+        )
+
+    def test_atender_cambia_estado_de_la_llamada(
+        self
+    ) -> None:
+        llamada = self.registrar_llamada(
+            peligro_inmediato=True
+        )
+
+        atendida = (
+            self.gestor
+            .atender_siguiente_llamada()
+        )
+
+        if atendida is None:
+            self.fail(
+                "Se esperaba una llamada atendida."
+            )
+
+        self.assertEqual(
+            atendida.id_llamada,
+            llamada.id_llamada
+        )
+
+        self.assertEqual(
+            atendida.estado,
+            EstadoLlamada.EN_ATENCION
+        )
+
+    def test_atender_respeta_fifo_dentro_de_misma_prioridad(
+        self
+    ) -> None:
+        primera = self.registrar_llamada(
+            peligro_inmediato=True
+        )
+
+        segunda = self.registrar_llamada(
+            peligro_inmediato=True
+        )
+
+        atendida = (
+            self.gestor
+            .atender_siguiente_llamada()
+        )
+
+        if atendida is None:
+            self.fail(
+                "Se esperaba una llamada atendida."
+            )
+
+        self.assertEqual(
+            atendida.id_llamada,
+            primera.id_llamada
+        )
+
+        siguiente = (
+            self.gestor
+            .cola_p1
+            .ver_frente()
+        )
+
+        self.assertEqual(
+            siguiente.id_llamada,
+            segunda.id_llamada
+        )
+
+    def test_no_permite_atender_dos_llamadas_simultaneamente(
+        self
+    ) -> None:
+        self.registrar_llamada()
+        self.registrar_llamada()
+
+        self.gestor.atender_siguiente_llamada()
+
+        with self.assertRaises(RuntimeError):
+            self.gestor.atender_siguiente_llamada()
+
+    def test_finalizar_llamada_cambia_estado_a_atendida(
+        self
+    ) -> None:
+        llamada = self.registrar_llamada()
+
+        self.gestor.atender_siguiente_llamada()
+
+        finalizada = (
+            self.gestor
+            .finalizar_llamada_actual()
+        )
+
+        self.assertEqual(
+            finalizada.id_llamada,
+            llamada.id_llamada
+        )
+
+        self.assertEqual(
+            finalizada.estado,
+            EstadoLlamada.ATENDIDA
+        )
+
+        self.assertIsNone(
+            self.gestor.llamada_en_atencion
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()
