@@ -40,6 +40,8 @@ class Operacion:
 
     prioridad_anterior: Optional[Prioridad] = None
     prioridad_nueva: Optional[Prioridad] = None
+    
+    posicion_anterior: Optional[int] = None
 
     def __post_init__(self):
         self._validar_id_llamada()

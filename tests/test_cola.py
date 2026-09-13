@@ -291,6 +291,121 @@ class TestCola(unittest.TestCase):
             cola.ver_frente(),
             "L001"
         )
+        
+    def test_obtener_posicion_elemento_existente(self) -> None:
+        cola = Cola()
+
+        cola.encolar("L001")
+        cola.encolar("L002")
+        cola.encolar("L003")
+
+        posicion = cola.obtener_posicion(
+            lambda elemento:
+                elemento == "L002"
+        )
+
+        self.assertEqual(
+            posicion,
+            1
+        )
+
+
+    def test_obtener_posicion_elemento_inexistente(self) -> None:
+        cola = Cola()
+
+        cola.encolar("L001")
+
+        posicion = cola.obtener_posicion(
+            lambda elemento:
+                elemento == "L999"
+        )
+
+        self.assertIsNone(
+            posicion
+        )
+
+
+    def test_insertar_elemento_en_posicion_intermedia(
+        self
+    ) -> None:
+        cola = Cola()
+
+        cola.encolar("L001")
+        cola.encolar("L003")
+
+        cola.insertar_en_posicion(
+            "L002",
+            1
+        )
+
+        self.assertEqual(
+            cola.desencolar(),
+            "L001"
+        )
+
+        self.assertEqual(
+            cola.desencolar(),
+            "L002"
+        )
+
+        self.assertEqual(
+            cola.desencolar(),
+            "L003"
+        )
+
+
+    def test_insertar_elemento_en_frente(self) -> None:
+        cola = Cola()
+
+        cola.encolar("L002")
+
+        cola.insertar_en_posicion(
+            "L001",
+            0
+        )
+
+        self.assertEqual(
+            cola.desencolar(),
+            "L001"
+        )
+
+        self.assertEqual(
+            cola.desencolar(),
+            "L002"
+        )
+
+
+    def test_insertar_elemento_al_final(self) -> None:
+        cola = Cola()
+
+        cola.encolar("L001")
+
+        cola.insertar_en_posicion(
+            "L002",
+            1
+        )
+
+        self.assertEqual(
+            cola.desencolar(),
+            "L001"
+        )
+
+        self.assertEqual(
+            cola.desencolar(),
+            "L002"
+        )
+
+
+    def test_insertar_en_posicion_invalida_genera_error(
+        self
+    ) -> None:
+        cola = Cola()
+
+        with self.assertRaises(IndexError):
+            cola.insertar_en_posicion(
+                "L001",
+                1
+            )
 
 
 if __name__ == "__main__":

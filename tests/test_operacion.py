@@ -91,6 +91,17 @@ class TestOperacion(unittest.TestCase):
                 tipo=TipoOperacion.REGISTRAR,
                 id_llamada=""
             )
+    def test_operacion_guarda_posicion_anterior(self) -> None:
+        operacion = Operacion(
+            tipo=TipoOperacion.CANCELAR,
+            id_llamada="L005",
+            posicion_anterior=2,
+        )
+
+        self.assertEqual(
+            operacion.posicion_anterior,
+            2
+        )
 
 
 if __name__ == "__main__":

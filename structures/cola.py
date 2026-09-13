@@ -154,3 +154,77 @@ class Cola:
             actual = actual.siguiente
 
         return None
+    
+    def obtener_posicion(
+        self,
+        condicion: Callable[[Any], bool]
+    ) -> int | None:
+        """
+        Retorna la posición del primer elemento que cumpla
+        la condición indicada.
+
+        La primera posición de la cola corresponde al índice 0.
+
+        Retorna None cuando no existe una coincidencia.
+        """
+        actual = self.frente
+        posicion = 0
+
+        while actual is not None:
+            if condicion(actual.dato):
+                return posicion
+
+            actual = actual.siguiente
+            posicion += 1
+
+        return None
+    
+    def insertar_en_posicion(
+        self,
+        dato: Any,
+        posicion: int
+    ) -> None:
+        """
+        Inserta un elemento en una posición específica
+        de la cola enlazada.
+
+        Args:
+            dato: Elemento que será almacenado.
+            posicion: Índice donde será insertado.
+
+        Raises:
+            IndexError: Si la posición no es válida.
+        """
+        if posicion < 0 or posicion > self._tamano:
+            raise IndexError(
+                "La posición indicada no es válida."
+            )
+
+        if posicion == self._tamano:
+            self.encolar(dato)
+            return
+
+        nuevo_nodo = NodoSimple(dato)
+
+        if posicion == 0:
+            nuevo_nodo.siguiente = self.frente
+            self.frente = nuevo_nodo
+
+            if self.final is None:
+                self.final = nuevo_nodo
+
+            self._tamano += 1
+            return
+
+        anterior = self.frente
+
+        for _ in range(posicion - 1):
+            assert anterior is not None
+            anterior = anterior.siguiente
+
+        assert anterior is not None
+
+        nuevo_nodo.siguiente = anterior.siguiente
+        anterior.siguiente = nuevo_nodo
+
+        self._tamano += 1
