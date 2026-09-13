@@ -406,7 +406,60 @@ class TestCola(unittest.TestCase):
                 "L001",
                 1
             )
+    def test_obtener_elementos_respeta_orden_fifo(
+        self
+    ) -> None:
+        cola = Cola()
 
+        cola.encolar("L001")
+        cola.encolar("L002")
+        cola.encolar("L003")
+
+        elementos = cola.obtener_elementos()
+
+        self.assertEqual(
+            elementos,
+            ["L001", "L002", "L003"]
+        )
+
+
+    def test_obtener_elementos_no_modifica_cola(
+        self
+    ) -> None:
+        cola = Cola()
+
+        cola.encolar("L001")
+        cola.encolar("L002")
+
+        elementos = cola.obtener_elementos()
+
+        self.assertEqual(
+            elementos,
+            ["L001", "L002"]
+        )
+
+        self.assertEqual(
+            cola.tamano(),
+            2
+        )
+
+        self.assertEqual(
+            cola.ver_frente(),
+            "L001"
+        )
+
+
+    def test_obtener_elementos_cola_vacia(
+        self
+    ) -> None:
+        cola = Cola()
+
+        elementos = cola.obtener_elementos()
+
+        self.assertEqual(
+            elementos,
+            []
+        )
 
 if __name__ == "__main__":
     unittest.main()

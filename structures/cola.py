@@ -228,3 +228,22 @@ class Cola:
         anterior.siguiente = nuevo_nodo
 
         self._tamano += 1
+        
+    def obtener_elementos(self) -> list[Any]:
+        """
+        Retorna los elementos de la cola en orden FIFO
+        sin modificar la estructura.
+
+        Returns:
+            list[Any]: Copia de los datos almacenados
+            desde el frente hasta el final.
+        """
+        elementos: list[Any] = []
+
+        actual = self.frente
+
+        while actual is not None:
+            elementos.append(actual.dato)
+            actual = actual.siguiente
+
+        return elementos
