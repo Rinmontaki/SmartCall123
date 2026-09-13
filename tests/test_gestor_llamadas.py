@@ -465,6 +465,102 @@ class TestGestorLlamadas(unittest.TestCase):
                 llamada.id_llamada,
                 Prioridad.NORMAL
             )
+    
+    def test_registro_temporal_guarda_llamada(
+        self
+    ) -> None:
+        llamada = self.registrar_llamada()
+
+        registrada = (
+            self.gestor
+            .obtener_llamada_registrada(
+                llamada.id_llamada
+            )
+        )
+
+        self.assertIsNotNone(registrada)
+
+        if registrada is None:
+            self.fail(
+                "Se esperaba encontrar la llamada registrada."
+            )
+
+        self.assertEqual(
+            registrada.id_llamada,
+            llamada.id_llamada
+        )
+
+
+    def test_registro_temporal_conserva_llamada_cancelada(
+        self
+    ) -> None:
+        llamada = self.registrar_llamada()
+
+        self.gestor.cancelar_llamada(
+            llamada.id_llamada
+        )
+
+        registrada = (
+            self.gestor
+            .obtener_llamada_registrada(
+                llamada.id_llamada
+            )
+        )
+
+        self.assertIsNotNone(registrada)
+
+        if registrada is None:
+            self.fail(
+                "La llamada cancelada debe permanecer "
+                "en el registro temporal."
+            )
+
+        self.assertEqual(
+            registrada.estado,
+            EstadoLlamada.CANCELADA
+        )
+
+
+    def test_registro_temporal_conserva_llamada_atendida(
+        self
+    ) -> None:
+        llamada = self.registrar_llamada()
+
+        self.gestor.atender_siguiente_llamada()
+        self.gestor.finalizar_llamada_actual()
+
+        registrada = (
+            self.gestor
+            .obtener_llamada_registrada(
+                llamada.id_llamada
+            )
+        )
+
+        self.assertIsNotNone(registrada)
+
+        if registrada is None:
+            self.fail(
+                "La llamada atendida debe permanecer "
+                "en el registro temporal."
+            )
+
+        self.assertEqual(
+            registrada.estado,
+            EstadoLlamada.ATENDIDA
+        )
+
+
+    def test_obtener_llamada_registrada_inexistente(
+        self
+    ) -> None:
+        registrada = (
+            self.gestor
+            .obtener_llamada_registrada(
+                "L999"
+            )
+        )
+
+        self.assertIsNone(registrada)
 
 
 if __name__ == "__main__":

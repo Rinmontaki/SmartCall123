@@ -15,16 +15,18 @@ class GestorLlamadas:
     seleccionar, atender y finalizar llamadas.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.cola_p1 = Cola()
         self.cola_p2 = Cola()
         self.cola_p3 = Cola()
 
         self.pila_operaciones = Pila()
 
-        self.llamada_en_atencion = None
+        self.llamada_en_atencion: Llamada | None = None
 
-        self._contador_llamadas = 0
+        self._contador_llamadas: int = 0
+
+        self._registro_llamadas: dict[str, Llamada] = {}
 
     def registrar_llamada(
         self,
@@ -67,8 +69,10 @@ class GestorLlamadas:
 
         cola.encolar(llamada)
 
+        self._registro_llamadas[llamada.id_llamada] = llamada
+        
         self._registrar_operacion_registro(llamada)
-
+        
         return llamada
 
     def obtener_siguiente_llamada(self):
@@ -422,3 +426,15 @@ class GestorLlamadas:
             return resultado
 
         return None
+    
+    def obtener_llamada_registrada(
+        self,
+        id_llamada: str
+    ) -> Llamada | None:
+        
+        """
+        Retorna una llamada que haya sido registrada
+        previamente, sin importar su estado actual.
+        """
+        
+        return self._registro_llamadas.get(id_llamada)
