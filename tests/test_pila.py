@@ -65,6 +65,66 @@ class TestPila(unittest.TestCase):
 
         with self.assertRaises(IndexError):
             pila.ver_tope()
+    
+    def test_obtener_elementos_respeta_orden_lifo(
+        self
+    ) -> None:
+        pila = Pila()
+
+        pila.apilar("OPERACION_1")
+        pila.apilar("OPERACION_2")
+        pila.apilar("OPERACION_3")
+
+        elementos = pila.obtener_elementos()
+
+        self.assertEqual(
+            elementos,
+            [
+                "OPERACION_3",
+                "OPERACION_2",
+                "OPERACION_1",
+            ]
+        )
+
+
+    def test_obtener_elementos_no_modifica_pila(
+        self
+    ) -> None:
+        pila = Pila()
+
+        pila.apilar("OPERACION_1")
+        pila.apilar("OPERACION_2")
+
+        elementos = pila.obtener_elementos()
+
+        self.assertEqual(
+            elementos,
+            [
+                "OPERACION_2",
+                "OPERACION_1",
+            ]
+        )
+
+        self.assertEqual(
+            pila.tamano(),
+            2
+        )
+
+        self.assertEqual(
+            pila.ver_tope(),
+            "OPERACION_2"
+        )
+
+
+    def test_obtener_elementos_pila_vacia(
+        self
+    ) -> None:
+        pila = Pila()
+
+        self.assertEqual(
+            pila.obtener_elementos(),
+            []
+        )
 
 
 if __name__ == "__main__":

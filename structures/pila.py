@@ -1,5 +1,5 @@
 from structures.nodo import NodoSimple
-
+from typing import Any
 
 class Pila:
     """
@@ -43,8 +43,11 @@ class Pila:
                 "No se puede desapilar una pila vacía."
             )
 
-        dato = self.tope.dato
-        self.tope = self.tope.siguiente
+        nodo_tope = self.tope
+        assert nodo_tope is not None
+
+        dato = nodo_tope.dato
+        self.tope = nodo_tope.siguiente
 
         self._tamano -= 1
 
@@ -62,6 +65,7 @@ class Pila:
                 "No se puede consultar una pila vacía."
             )
 
+        assert self.tope is not None
         return self.tope.dato
 
     def tamano(self):
@@ -69,3 +73,21 @@ class Pila:
         Retorna la cantidad de elementos almacenados.
         """
         return self._tamano
+    
+    def obtener_elementos(self) -> list[Any]:
+        """
+        Retorna los elementos almacenados en la pila
+        desde el tope hasta la base, sin modificarla.
+
+        El primer elemento de la lista corresponde
+        a la operación más reciente.
+        """
+        elementos: list[Any] = []
+
+        actual = self.tope
+
+        while actual is not None:
+            elementos.append(actual.dato)
+            actual = actual.siguiente
+
+        return elementos

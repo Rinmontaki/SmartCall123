@@ -714,6 +714,389 @@ class SmartCallApp(ctk.CTk):
             self._notificacion_actual.destroy()
             self._notificacion_actual = None
     
+    def mostrar_historial(self) -> None:
+        """
+        Abre una ventana que representa visualmente
+        la pila LIFO de operaciones de SmartCall 123.
+        """
+
+        operaciones = (
+            self.gestor
+            .obtener_operaciones_deshacibles()
+        )
+
+        ventana = ctk.CTkToplevel(self)
+
+        ventana.title(
+            "Historial de operaciones | SmartCall 123"
+        )
+
+        ventana.geometry(
+            "850x620"
+        )
+
+        ventana.minsize(
+            800,
+            560
+        )
+
+        ventana.configure(
+            fg_color=self.COLOR_FONDO
+        )
+
+        ventana.transient(self)
+        ventana.grab_set()
+
+        self._centrar_ventana_secundaria(
+            ventana,
+            850,
+            620
+        )
+
+        self._crear_vista_historial(
+            ventana,
+            operaciones
+    )
+        
+    
+    def _crear_vista_historial(
+        self,
+        ventana: ctk.CTkToplevel,
+        operaciones: list
+    ) -> None:
+        """
+        Construye la representación visual
+        de la pila de operaciones.
+        """
+
+        contenedor = ctk.CTkFrame(
+            ventana,
+            fg_color=self.COLOR_FONDO,
+            corner_radius=0
+        )
+
+        contenedor.pack(
+            fill="both",
+            expand=True,
+            padx=28,
+            pady=25
+        )
+
+        titulo = ctk.CTkLabel(
+            contenedor,
+            text="Pila de operaciones",
+            text_color=self.COLOR_TEXTO,
+            font=ctk.CTkFont(
+                size=25,
+                weight="bold"
+            )
+        )
+
+        titulo.pack(
+            anchor="w"
+        )
+
+        subtitulo = ctk.CTkLabel(
+            contenedor,
+            text=(
+                "Las operaciones se muestran desde "
+                "la más reciente hasta la más antigua."
+            ),
+            text_color=self.COLOR_TEXTO_SECUNDARIO,
+            font=ctk.CTkFont(
+                size=12
+            )
+        )
+
+        subtitulo.pack(
+            anchor="w",
+            pady=(3, 18)
+        )
+
+        # -------------------------------------------------
+        # RESUMEN
+        # -------------------------------------------------
+
+        resumen = ctk.CTkFrame(
+            contenedor,
+            fg_color=self.COLOR_PANEL,
+            corner_radius=10,
+            border_width=1,
+            border_color=self.COLOR_BORDE
+        )
+
+        resumen.pack(
+            fill="x",
+            pady=(0, 15)
+        )
+
+        contador = ctk.CTkLabel(
+            resumen,
+            text=(
+                f"{len(operaciones)} operaciones "
+                "disponibles para deshacer"
+            ),
+            text_color=self.COLOR_TEXTO,
+            font=ctk.CTkFont(
+                size=13,
+                weight="bold"
+            )
+        )
+
+        contador.pack(
+            anchor="w",
+            padx=18,
+            pady=(13, 3)
+        )
+
+        explicacion = ctk.CTkLabel(
+            resumen,
+            text=(
+                "TOPE → la primera operación es "
+                "la siguiente que será deshecha."
+            ),
+            text_color=self.COLOR_TEXTO_SECUNDARIO,
+            font=ctk.CTkFont(
+                size=11
+            )
+        )
+
+        explicacion.pack(
+            anchor="w",
+            padx=18,
+            pady=(0, 13)
+        )
+
+        # -------------------------------------------------
+        # LISTADO DE OPERACIONES
+        # -------------------------------------------------
+
+        scroll = ctk.CTkScrollableFrame(
+            contenedor,
+            fg_color="transparent"
+        )
+
+        scroll.pack(
+            fill="both",
+            expand=True
+        )
+
+        if not operaciones:
+            vacio = ctk.CTkLabel(
+                scroll,
+                text="No existen operaciones en la pila.",
+                text_color=self.COLOR_TEXTO_SECUNDARIO,
+                font=ctk.CTkFont(
+                    size=13
+                )
+            )
+
+            vacio.pack(
+                pady=60
+            )
+
+            return
+
+        for indice, operacion in enumerate(
+            operaciones
+        ):
+            self._crear_tarjeta_operacion(
+                scroll,
+                operacion,
+                es_tope=(indice == 0)
+            )
+    
+    
+    def _crear_tarjeta_operacion(
+        self,
+        padre,
+        operacion,
+        es_tope: bool
+    ) -> None:
+        """
+        Crea la representación visual de una
+        operación almacenada en la pila.
+        """
+
+        color = self._obtener_color_operacion(
+            operacion.tipo.value
+        )
+
+        tarjeta = ctk.CTkFrame(
+            padre,
+            fg_color=self.COLOR_PANEL,
+            corner_radius=10,
+            border_width=1,
+            border_color=(
+                color
+                if es_tope
+                else self.COLOR_BORDE
+            )
+        )
+
+        tarjeta.pack(
+            fill="x",
+            pady=5
+        )
+
+        encabezado = ctk.CTkFrame(
+            tarjeta,
+            fg_color="transparent"
+        )
+
+        encabezado.pack(
+            fill="x",
+            padx=17,
+            pady=(13, 4)
+        )
+
+        tipo = ctk.CTkLabel(
+            encabezado,
+            text=operacion.tipo.value,
+            text_color=color,
+            font=ctk.CTkFont(
+                size=12,
+                weight="bold"
+            )
+        )
+
+        tipo.pack(
+            side="left"
+        )
+
+        llamada = ctk.CTkLabel(
+            encabezado,
+            text=f"  ·  {operacion.id_llamada}",
+            text_color=self.COLOR_TEXTO,
+            font=ctk.CTkFont(
+                size=12,
+                weight="bold"
+            )
+        )
+
+        llamada.pack(
+            side="left"
+        )
+
+        if es_tope:
+            tope = ctk.CTkLabel(
+                encabezado,
+                text="  TOPE  ",
+                fg_color=color,
+                text_color="#FFFFFF",
+                corner_radius=5,
+                font=ctk.CTkFont(
+                    size=9,
+                    weight="bold"
+                )
+            )
+
+            tope.pack(
+                side="right"
+            )
+
+        fecha = ctk.CTkLabel(
+            tarjeta,
+            text=operacion.fecha_hora.strftime(
+                "%d/%m/%Y  %H:%M:%S"
+            ),
+            text_color=self.COLOR_TEXTO_SECUNDARIO,
+            font=ctk.CTkFont(
+                size=10
+            )
+        )
+
+        fecha.pack(
+            anchor="w",
+            padx=17,
+            pady=(0, 5)
+        )
+
+        detalle = self._formatear_detalle_operacion(
+            operacion
+        )
+
+        if detalle:
+            label_detalle = ctk.CTkLabel(
+                tarjeta,
+                text=detalle,
+                text_color=self.COLOR_TEXTO_SECUNDARIO,
+                font=ctk.CTkFont(
+                    size=11
+                )
+            )
+
+            label_detalle.pack(
+                anchor="w",
+                padx=17,
+                pady=(0, 13)
+            )
+        else:
+            fecha.pack_configure(
+                pady=(0, 13)
+            )
+    
+    def _obtener_color_operacion(
+        self,
+        tipo: str
+    ) -> str:
+        """
+        Retorna un color visual según
+        el tipo de operación.
+        """
+
+        colores = {
+            "REGISTRAR": self.COLOR_EXITO,
+            "ATENDER": self.COLOR_INFO,
+            "FINALIZAR": self.COLOR_EXITO,
+            "RECLASIFICAR": self.COLOR_ADVERTENCIA,
+            "CANCELAR": self.COLOR_ERROR,
+        }
+
+        return colores.get(
+            tipo,
+            self.COLOR_TEXTO_SECUNDARIO
+        )
+        
+    def _formatear_detalle_operacion(
+        self,
+        operacion
+    ) -> str:
+        """
+        Genera una descripción breve de los cambios
+        realizados por una operación.
+        """
+
+        partes: list[str] = []
+
+        if (
+            operacion.estado_anterior is not None
+            and operacion.estado_nuevo is not None
+            and operacion.estado_anterior
+            != operacion.estado_nuevo
+        ):
+            partes.append(
+                f"Estado: "
+                f"{operacion.estado_anterior.value}"
+                f" → "
+                f"{operacion.estado_nuevo.value}"
+            )
+
+        if (
+            operacion.prioridad_anterior is not None
+            and operacion.prioridad_nueva is not None
+            and operacion.prioridad_anterior
+            != operacion.prioridad_nueva
+        ):
+            partes.append(
+                f"Prioridad: "
+                f"{operacion.prioridad_anterior.value}"
+                f" → "
+                f"{operacion.prioridad_nueva.value}"
+            )
+
+        return "   |   ".join(partes)
+    
     def _crear_vista_busqueda(
         self,
         ventana: ctk.CTkToplevel,
@@ -1862,6 +2245,12 @@ class SmartCallApp(ctk.CTk):
             "Cancelar llamada",
             "×",
             self.cancelar_llamada
+        )
+        
+        self._crear_boton_menu(
+            "Historial",
+            "☷",
+            self.mostrar_historial
         )
 
         self._crear_boton_menu(

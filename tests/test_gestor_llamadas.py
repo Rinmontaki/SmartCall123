@@ -806,6 +806,27 @@ class TestGestorLlamadas(unittest.TestCase):
             llamadas[0].id_llamada,
             segunda.id_llamada
         )
+        
+    def test_obtener_operaciones_deshacibles_respeta_lifo(
+        self
+    ) -> None:
+        primera = self.registrar_llamada()
+        segunda = self.registrar_llamada()
+
+        operaciones = (
+            self.gestor
+            .obtener_operaciones_deshacibles()
+        )
+
+        self.assertEqual(
+            operaciones[0].id_llamada,
+            segunda.id_llamada
+        )
+
+        self.assertEqual(
+            operaciones[1].id_llamada,
+            primera.id_llamada
+        )
 
 
 if __name__ == "__main__":

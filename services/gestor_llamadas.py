@@ -812,3 +812,23 @@ class GestorLlamadas:
             if llamada.estado == EstadoLlamada.EN_ESPERA
         ]
     
+    def obtener_operaciones_deshacibles(
+        self
+    ) -> list[Operacion]:
+        """
+        Retorna las operaciones almacenadas actualmente
+        en la pila LIFO, desde la más reciente hasta
+        la más antigua.
+        """
+
+        elementos = (
+            self.pila_operaciones
+            .obtener_elementos()
+        )
+
+        return [
+            elemento
+            for elemento in elementos
+            if isinstance(elemento, Operacion)
+        ]
+    
