@@ -289,6 +289,182 @@ class TestGestorLlamadas(unittest.TestCase):
         self.assertIsNone(
             self.gestor.llamada_en_atencion
         )
+        
+    def test_buscar_llamada_registrada(self) -> None:
+        llamada = self.registrar_llamada()
+
+        encontrada = self.gestor.buscar_llamada(
+            llamada.id_llamada
+        )
+
+        self.assertIsNotNone(encontrada)
+
+        if encontrada is None:
+            self.fail("Se esperaba encontrar la llamada.")
+
+        self.assertEqual(
+            encontrada.id_llamada,
+            llamada.id_llamada
+        )
+
+    def test_buscar_llamada_inexistente_retorna_none(
+        self
+    ) -> None:
+        encontrada = self.gestor.buscar_llamada(
+            "L999"
+        )
+
+        self.assertIsNone(encontrada)
+
+    def test_cancelar_llamada_en_espera(self) -> None:
+        llamada = self.registrar_llamada()
+
+        cancelada = self.gestor.cancelar_llamada(
+            llamada.id_llamada
+        )
+
+        self.assertEqual(
+            cancelada.estado,
+            EstadoLlamada.CANCELADA
+        )
+
+        self.assertTrue(
+            self.gestor.cola_p3.esta_vacia()
+        )
+
+    def test_cancelar_registra_operacion_en_pila(
+        self
+    ) -> None:
+        llamada = self.registrar_llamada()
+
+        self.gestor.cancelar_llamada(
+            llamada.id_llamada
+        )
+
+        operacion = (
+            self.gestor
+            .pila_operaciones
+            .ver_tope()
+        )
+
+        self.assertEqual(
+            operacion.tipo,
+            TipoOperacion.CANCELAR
+        )
+
+        self.assertEqual(
+            operacion.id_llamada,
+            llamada.id_llamada
+        )
+
+    def test_no_permite_cancelar_llamada_en_atencion(
+        self
+    ) -> None:
+        llamada = self.registrar_llamada()
+
+        self.gestor.atender_siguiente_llamada()
+
+        with self.assertRaises(RuntimeError):
+            self.gestor.cancelar_llamada(
+                llamada.id_llamada
+            )
+
+    def test_reclasificar_llamada_cambia_prioridad(
+        self
+    ) -> None:
+        llamada = self.registrar_llamada()
+
+        reclasificada = (
+            self.gestor.reclasificar_llamada(
+                llamada.id_llamada,
+                Prioridad.CRITICA
+            )
+        )
+
+        self.assertEqual(
+            reclasificada.prioridad,
+            Prioridad.CRITICA
+        )
+
+        self.assertTrue(
+            self.gestor.cola_p3.esta_vacia()
+        )
+
+        self.assertEqual(
+            self.gestor.cola_p1.tamano(),
+            1
+        )
+
+    def test_reclasificacion_respeta_fifo_en_nueva_cola(
+        self
+    ) -> None:
+        primera_p1 = self.registrar_llamada(
+            peligro_inmediato=True
+        )
+
+        llamada_p3 = self.registrar_llamada()
+
+        self.gestor.reclasificar_llamada(
+            llamada_p3.id_llamada,
+            Prioridad.CRITICA
+        )
+
+        siguiente = (
+            self.gestor
+            .obtener_siguiente_llamada()
+        )
+
+        if siguiente is None:
+            self.fail(
+                "Se esperaba una siguiente llamada."
+            )
+
+        self.assertEqual(
+            siguiente.id_llamada,
+            primera_p1.id_llamada
+        )
+
+    def test_reclasificacion_se_registra_en_pila(
+        self
+    ) -> None:
+        llamada = self.registrar_llamada()
+
+        self.gestor.reclasificar_llamada(
+            llamada.id_llamada,
+            Prioridad.ALTA
+        )
+
+        operacion = (
+            self.gestor
+            .pila_operaciones
+            .ver_tope()
+        )
+
+        self.assertEqual(
+            operacion.tipo,
+            TipoOperacion.RECLASIFICAR
+        )
+
+        self.assertEqual(
+            operacion.prioridad_anterior,
+            Prioridad.NORMAL
+        )
+
+        self.assertEqual(
+            operacion.prioridad_nueva,
+            Prioridad.ALTA
+        )
+
+    def test_no_permite_reclasificar_a_misma_prioridad(
+        self
+    ) -> None:
+        llamada = self.registrar_llamada()
+
+        with self.assertRaises(ValueError):
+            self.gestor.reclasificar_llamada(
+                llamada.id_llamada,
+                Prioridad.NORMAL
+            )
 
 
 if __name__ == "__main__":

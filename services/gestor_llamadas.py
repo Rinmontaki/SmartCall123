@@ -151,7 +151,178 @@ class GestorLlamadas:
         self.llamada_en_atencion = None
 
         return llamada
+    
+    def buscar_llamada(
+        self,
+        id_llamada: str
+    ) -> Llamada | None:
+        """
+        Busca una llamada que esté esperando
+        o actualmente en atención.
+        """
 
+        if (
+            self.llamada_en_atencion is not None
+            and self.llamada_en_atencion.id_llamada
+            == id_llamada
+        ):
+            return self.llamada_en_atencion
+
+        for cola in (
+            self.cola_p1,
+            self.cola_p2,
+            self.cola_p3,
+        ):
+            llamada = self._buscar_en_cola(
+                cola,
+                id_llamada
+            )
+
+            if llamada is not None:
+                return llamada
+
+        return None
+    def cancelar_llamada(
+        self,
+        id_llamada: str
+    ) -> Llamada:
+        """
+        Cancela una llamada que se encuentre
+        esperando dentro de una cola.
+        """
+
+        llamada = self.buscar_llamada(
+            id_llamada
+        )
+
+        if llamada is None:
+            raise ValueError(
+                "La llamada indicada no existe."
+            )
+
+        if llamada.estado != EstadoLlamada.EN_ESPERA:
+            raise RuntimeError(
+                "Solo se pueden cancelar llamadas "
+                "que estén en espera."
+            )
+
+        if llamada.prioridad is None:
+            raise RuntimeError(
+                "La llamada no tiene una prioridad asignada."
+            )
+
+        cola = self._obtener_cola(
+            llamada.prioridad
+        )
+
+        eliminada = self._eliminar_de_cola(
+            cola,
+            id_llamada
+        )
+
+        if eliminada is None:
+            raise RuntimeError(
+                "No fue posible retirar la llamada "
+                "de su cola."
+            )
+
+        estado_anterior = llamada.estado
+
+        llamada.estado = EstadoLlamada.CANCELADA
+
+        operacion = Operacion(
+            tipo=TipoOperacion.CANCELAR,
+            id_llamada=llamada.id_llamada,
+            estado_anterior=estado_anterior,
+            estado_nuevo=EstadoLlamada.CANCELADA,
+            prioridad_anterior=llamada.prioridad,
+            prioridad_nueva=llamada.prioridad,
+        )
+
+        self.pila_operaciones.apilar(
+            operacion
+        )
+
+        return llamada
+
+    def reclasificar_llamada(
+        self,
+        id_llamada: str,
+        nueva_prioridad: Prioridad
+    ) -> Llamada:
+        """
+        Cambia la prioridad de una llamada en espera
+        y la mueve a la cola correspondiente.
+        """
+
+        llamada = self.buscar_llamada(
+            id_llamada
+        )
+
+        if llamada is None:
+            raise ValueError(
+                "La llamada indicada no existe."
+            )
+
+        if llamada.estado != EstadoLlamada.EN_ESPERA:
+            raise RuntimeError(
+                "Solo se pueden reclasificar llamadas "
+                "que estén en espera."
+            )
+
+        prioridad_anterior = llamada.prioridad
+
+        if prioridad_anterior is None:
+            raise RuntimeError(
+                "La llamada no tiene una prioridad asignada."
+            )
+
+        if prioridad_anterior == nueva_prioridad:
+            raise ValueError(
+                "La llamada ya pertenece "
+                "a esa prioridad."
+            )
+
+        cola_anterior = self._obtener_cola(
+            prioridad_anterior
+        )
+
+        eliminada = self._eliminar_de_cola(
+            cola_anterior,
+            id_llamada
+        )
+
+        if eliminada is None:
+            raise RuntimeError(
+                "No fue posible retirar la llamada "
+                "de su cola actual."
+            )
+
+        llamada.prioridad = nueva_prioridad
+
+        nueva_cola = self._obtener_cola(
+            nueva_prioridad
+        )
+
+        nueva_cola.encolar(
+            llamada
+        )
+
+        operacion = Operacion(
+            tipo=TipoOperacion.RECLASIFICAR,
+            id_llamada=llamada.id_llamada,
+            estado_anterior=llamada.estado,
+            estado_nuevo=llamada.estado,
+            prioridad_anterior=prioridad_anterior,
+            prioridad_nueva=nueva_prioridad,
+        )
+
+        self.pila_operaciones.apilar(
+            operacion
+        )
+
+        return llamada
+    
     def _generar_id(self):
         """
         Genera identificadores secuenciales para las llamadas.
@@ -211,3 +382,43 @@ class GestorLlamadas:
         )
 
         self.pila_operaciones.apilar(operacion)
+        
+    def _buscar_en_cola(
+        self,
+        cola: Cola,
+        id_llamada: str
+    ) -> Llamada | None:
+        """
+        Busca una llamada específica dentro de una cola.
+        """
+
+        resultado = cola.buscar(
+            lambda dato:
+                isinstance(dato, Llamada)
+                and dato.id_llamada == id_llamada
+        )
+
+        if isinstance(resultado, Llamada):
+            return resultado
+
+        return None
+
+    def _eliminar_de_cola(
+        self,
+        cola: Cola,
+        id_llamada: str
+    ) -> Llamada | None:
+        """
+        Elimina una llamada específica de una cola.
+        """
+
+        resultado = cola.eliminar(
+            lambda dato:
+                isinstance(dato, Llamada)
+                and dato.id_llamada == id_llamada
+        )
+
+        if isinstance(resultado, Llamada):
+            return resultado
+
+        return None
