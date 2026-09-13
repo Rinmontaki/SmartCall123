@@ -748,6 +748,64 @@ class TestGestorLlamadas(unittest.TestCase):
             llamada.prioridad,
             Prioridad.NORMAL
         )
+        
+    def test_obtener_llamadas_registradas(
+        self
+    ) -> None:
+        primera = self.registrar_llamada()
+        segunda = self.registrar_llamada(
+            heridos=True
+        )
+
+        llamadas = (
+            self.gestor
+            .obtener_llamadas_registradas()
+        )
+
+        self.assertEqual(
+            len(llamadas),
+            2
+        )
+
+        self.assertEqual(
+            llamadas[0].id_llamada,
+            primera.id_llamada
+        )
+
+        self.assertEqual(
+            llamadas[1].id_llamada,
+            segunda.id_llamada
+        )
+        
+    def test_obtener_llamadas_en_espera(
+        self
+    ) -> None:
+        primera = self.registrar_llamada()
+        segunda = self.registrar_llamada(
+            heridos=True
+        )
+
+        self.gestor.atender_siguiente_llamada()
+
+        llamadas = (
+            self.gestor
+            .obtener_llamadas_en_espera()
+        )
+
+        self.assertEqual(
+            len(llamadas),
+            1
+        )
+
+        self.assertEqual(
+            llamadas[0].id_llamada,
+            primera.id_llamada
+        )
+
+        self.assertNotEqual(
+            llamadas[0].id_llamada,
+            segunda.id_llamada
+        )
 
 
 if __name__ == "__main__":

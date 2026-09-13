@@ -788,3 +788,27 @@ class GestorLlamadas:
         """
         
         return self._registro_llamadas.get(id_llamada)
+    
+    def obtener_llamadas_registradas(self) -> list[Llamada]:
+        """
+        Retorna todas las llamadas registradas durante
+        la ejecución actual del sistema.
+
+        Se conserva el orden en el que fueron registradas.
+        """
+        return list(
+            self._registro_llamadas.values()
+        )
+    def obtener_llamadas_en_espera(
+        self
+    ) -> list[Llamada]:
+        """
+        Retorna todas las llamadas que actualmente
+        se encuentran esperando en alguna cola.
+        """
+        return [
+            llamada
+            for llamada in self._registro_llamadas.values()
+            if llamada.estado == EstadoLlamada.EN_ESPERA
+        ]
+    
