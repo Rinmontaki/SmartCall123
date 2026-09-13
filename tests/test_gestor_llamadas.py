@@ -561,6 +561,193 @@ class TestGestorLlamadas(unittest.TestCase):
         )
 
         self.assertIsNone(registrada)
+        
+    def test_deshacer_sin_operaciones_genera_error(
+        self
+    ) -> None:
+        with self.assertRaises(RuntimeError):
+            self.gestor.deshacer_ultima_operacion()
+
+
+    def test_deshacer_registro_elimina_llamada(
+        self
+    ) -> None:
+        llamada = self.registrar_llamada()
+
+        self.gestor.deshacer_ultima_operacion()
+
+        self.assertIsNone(
+            self.gestor.obtener_llamada_registrada(
+                llamada.id_llamada
+            )
+        )
+
+        self.assertTrue(
+            self.gestor.cola_p3.esta_vacia()
+        )
+
+
+    def test_deshacer_cancelacion_restaura_posicion(
+        self
+    ) -> None:
+        primera = self.registrar_llamada()
+        segunda = self.registrar_llamada()
+        tercera = self.registrar_llamada()
+
+        self.gestor.cancelar_llamada(
+            segunda.id_llamada
+        )
+
+        self.gestor.deshacer_ultima_operacion()
+
+        self.assertEqual(
+            self.gestor.cola_p3.desencolar().id_llamada,
+            primera.id_llamada
+        )
+
+        self.assertEqual(
+            self.gestor.cola_p3.desencolar().id_llamada,
+            segunda.id_llamada
+        )
+
+        self.assertEqual(
+            self.gestor.cola_p3.desencolar().id_llamada,
+            tercera.id_llamada
+        )
+
+
+    def test_deshacer_reclasificacion_restaura_cola(
+        self
+    ) -> None:
+        primera = self.registrar_llamada()
+        segunda = self.registrar_llamada()
+        tercera = self.registrar_llamada()
+
+        self.gestor.reclasificar_llamada(
+            segunda.id_llamada,
+            Prioridad.CRITICA
+        )
+
+        self.gestor.deshacer_ultima_operacion()
+
+        self.assertTrue(
+            self.gestor.cola_p1.esta_vacia()
+        )
+
+        self.assertEqual(
+            self.gestor.cola_p3.desencolar().id_llamada,
+            primera.id_llamada
+        )
+
+        self.assertEqual(
+            self.gestor.cola_p3.desencolar().id_llamada,
+            segunda.id_llamada
+        )
+
+        self.assertEqual(
+            self.gestor.cola_p3.desencolar().id_llamada,
+            tercera.id_llamada
+        )
+
+
+    def test_deshacer_atencion_restaura_llamada_al_frente(
+        self
+    ) -> None:
+        primera = self.registrar_llamada()
+        segunda = self.registrar_llamada()
+
+        self.gestor.atender_siguiente_llamada()
+
+        self.gestor.deshacer_ultima_operacion()
+
+        self.assertIsNone(
+            self.gestor.llamada_en_atencion
+        )
+
+        self.assertEqual(
+            self.gestor.cola_p3.ver_frente().id_llamada,
+            primera.id_llamada
+        )
+
+        self.assertEqual(
+            self.gestor.cola_p3.tamano(),
+            2
+        )
+
+
+    def test_deshacer_finalizacion_restaura_atencion(
+        self
+    ) -> None:
+        llamada = self.registrar_llamada()
+
+        self.gestor.atender_siguiente_llamada()
+        self.gestor.finalizar_llamada_actual()
+
+        self.gestor.deshacer_ultima_operacion()
+
+        actual = self.gestor.llamada_en_atencion
+
+        if actual is None:
+            self.fail(
+                "Se esperaba una llamada en atención."
+            )
+
+        self.assertEqual(
+            actual.id_llamada,
+            llamada.id_llamada
+        )
+
+        self.assertEqual(
+            actual.estado,
+            EstadoLlamada.EN_ATENCION
+        )
+
+
+    def test_deshacer_respeta_orden_lifo(
+        self
+    ) -> None:
+        llamada = self.registrar_llamada()
+
+        self.gestor.reclasificar_llamada(
+            llamada.id_llamada,
+            Prioridad.CRITICA
+        )
+
+        self.gestor.cancelar_llamada(
+            llamada.id_llamada
+        )
+
+        # Primero debe deshacer CANCELAR.
+        operacion = (
+            self.gestor
+            .deshacer_ultima_operacion()
+        )
+
+        self.assertEqual(
+            operacion.tipo,
+            TipoOperacion.CANCELAR
+        )
+
+        self.assertEqual(
+            llamada.prioridad,
+            Prioridad.CRITICA
+        )
+
+        # Después debe deshacer RECLASIFICAR.
+        operacion = (
+            self.gestor
+            .deshacer_ultima_operacion()
+        )
+
+        self.assertEqual(
+            operacion.tipo,
+            TipoOperacion.RECLASIFICAR
+        )
+
+        self.assertEqual(
+            llamada.prioridad,
+            Prioridad.NORMAL
+        )
 
 
 if __name__ == "__main__":

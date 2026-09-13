@@ -119,6 +119,7 @@ class GestorLlamadas:
             estado_nuevo=EstadoLlamada.EN_ATENCION,
             prioridad_anterior=llamada.prioridad,
             prioridad_nueva=llamada.prioridad,
+            posicion_anterior=0,  # La posición anterior no es relevante para esta operación
         )
 
         self.pila_operaciones.apilar(operacion)
@@ -156,6 +157,22 @@ class GestorLlamadas:
 
         return llamada
     
+    def _obtener_posicion_en_cola(
+        self,
+        cola: Cola,
+        id_llamada: str
+    ) -> int | None:
+        """
+        Retorna la posición de una llamada dentro
+        de una cola.
+        """
+
+        return cola.obtener_posicion(
+            lambda dato:
+                isinstance(dato, Llamada)
+                and dato.id_llamada == id_llamada
+        )
+    
     def buscar_llamada(
         self,
         id_llamada: str
@@ -186,18 +203,19 @@ class GestorLlamadas:
                 return llamada
 
         return None
+    
     def cancelar_llamada(
         self,
         id_llamada: str
     ) -> Llamada:
         """
-        Cancela una llamada que se encuentre
-        esperando dentro de una cola.
+        Cancela una llamada que se encuentre esperando.
+
+        Guarda su estado, prioridad y posición original
+        para permitir posteriormente deshacer la operación.
         """
 
-        llamada = self.buscar_llamada(
-            id_llamada
-        )
+        llamada = self.buscar_llamada(id_llamada)
 
         if llamada is None:
             raise ValueError(
@@ -218,6 +236,17 @@ class GestorLlamadas:
         cola = self._obtener_cola(
             llamada.prioridad
         )
+
+        posicion_anterior = self._obtener_posicion_en_cola(
+            cola,
+            id_llamada
+        )
+
+        if posicion_anterior is None:
+            raise RuntimeError(
+                "No fue posible determinar la posición "
+                "de la llamada."
+            )
 
         eliminada = self._eliminar_de_cola(
             cola,
@@ -241,6 +270,7 @@ class GestorLlamadas:
             estado_nuevo=EstadoLlamada.CANCELADA,
             prioridad_anterior=llamada.prioridad,
             prioridad_nueva=llamada.prioridad,
+            posicion_anterior=posicion_anterior,
         )
 
         self.pila_operaciones.apilar(
@@ -255,8 +285,11 @@ class GestorLlamadas:
         nueva_prioridad: Prioridad
     ) -> Llamada:
         """
-        Cambia la prioridad de una llamada en espera
-        y la mueve a la cola correspondiente.
+        Cambia la prioridad de una llamada en espera.
+
+        La llamada se elimina de su cola actual y se agrega
+        al final de la nueva cola, conservando la información
+        necesaria para deshacer la operación.
         """
 
         llamada = self.buscar_llamada(
@@ -291,6 +324,17 @@ class GestorLlamadas:
             prioridad_anterior
         )
 
+        posicion_anterior = self._obtener_posicion_en_cola(
+            cola_anterior,
+            id_llamada
+        )
+
+        if posicion_anterior is None:
+            raise RuntimeError(
+                "No fue posible determinar la posición "
+                "original de la llamada."
+            )
+
         eliminada = self._eliminar_de_cola(
             cola_anterior,
             id_llamada
@@ -319,6 +363,7 @@ class GestorLlamadas:
             estado_nuevo=llamada.estado,
             prioridad_anterior=prioridad_anterior,
             prioridad_nueva=nueva_prioridad,
+            posicion_anterior=posicion_anterior,
         )
 
         self.pila_operaciones.apilar(
@@ -326,6 +371,311 @@ class GestorLlamadas:
         )
 
         return llamada
+    
+    def deshacer_ultima_operacion(
+        self
+    ) -> Operacion:
+        """
+        Revierte la última operación registrada utilizando
+        el comportamiento LIFO de la pila.
+
+        Returns:
+            Operacion: Operación que fue deshecha.
+
+        Raises:
+            RuntimeError: Si no existen operaciones.
+        """
+
+        if self.pila_operaciones.esta_vacia():
+            raise RuntimeError(
+                "No existen operaciones para deshacer."
+            )
+
+        operacion = self.pila_operaciones.ver_tope()
+
+        if not isinstance(operacion, Operacion):
+            raise RuntimeError(
+                "La pila contiene una operación inválida."
+            )
+
+        if operacion.tipo == TipoOperacion.REGISTRAR:
+            self._deshacer_registro(operacion)
+
+        elif operacion.tipo == TipoOperacion.CANCELAR:
+            self._deshacer_cancelacion(operacion)
+
+        elif operacion.tipo == TipoOperacion.RECLASIFICAR:
+            self._deshacer_reclasificacion(operacion)
+
+        elif operacion.tipo == TipoOperacion.ATENDER:
+            self._deshacer_atencion(operacion)
+
+        elif operacion.tipo == TipoOperacion.FINALIZAR:
+            self._deshacer_finalizacion(operacion)
+
+        else:
+            raise RuntimeError(
+                "El tipo de operación no puede deshacerse."
+            )
+
+        self.pila_operaciones.desapilar()
+
+        return operacion
+    
+    def _deshacer_registro(
+        self,
+        operacion: Operacion
+    ) -> None:
+        """
+        Elimina del sistema una llamada cuyo registro
+        está siendo deshecho.
+        """
+
+        llamada = self.obtener_llamada_registrada(
+            operacion.id_llamada
+        )
+
+        if llamada is None:
+            raise RuntimeError(
+                "La llamada registrada no existe."
+            )
+
+        if llamada.estado != EstadoLlamada.EN_ESPERA:
+            raise RuntimeError(
+                "El registro no puede deshacerse "
+                "en el estado actual."
+            )
+
+        if llamada.prioridad is None:
+            raise RuntimeError(
+                "La llamada no tiene prioridad."
+            )
+
+        cola = self._obtener_cola(
+            llamada.prioridad
+        )
+
+        eliminada = self._eliminar_de_cola(
+            cola,
+            llamada.id_llamada
+        )
+
+        if eliminada is None:
+            raise RuntimeError(
+                "No fue posible retirar la llamada."
+            )
+
+        del self._registro_llamadas[
+            llamada.id_llamada
+        ]
+    
+    def _deshacer_cancelacion(
+        self,
+        operacion: Operacion
+    ) -> None:
+        """
+        Restaura una llamada cancelada en su posición
+        y estado originales.
+        """
+
+        llamada = self.obtener_llamada_registrada(
+            operacion.id_llamada
+        )
+
+        if llamada is None:
+            raise RuntimeError(
+                "La llamada cancelada no existe."
+            )
+
+        if operacion.prioridad_anterior is None:
+            raise RuntimeError(
+                "No existe prioridad anterior registrada."
+            )
+
+        if operacion.estado_anterior is None:
+            raise RuntimeError(
+                "No existe estado anterior registrado."
+            )
+
+        if operacion.posicion_anterior is None:
+            raise RuntimeError(
+                "No existe posición anterior registrada."
+            )
+
+        llamada.prioridad = (
+            operacion.prioridad_anterior
+        )
+
+        llamada.estado = (
+            operacion.estado_anterior
+        )
+
+        cola = self._obtener_cola(
+            operacion.prioridad_anterior
+        )
+
+        cola.insertar_en_posicion(
+            llamada,
+            operacion.posicion_anterior
+        )
+    
+    def _deshacer_reclasificacion(
+        self,
+        operacion: Operacion
+    ) -> None:
+        """
+        Devuelve una llamada reclasificada a su prioridad
+        y posición anteriores.
+        """
+
+        llamada = self.obtener_llamada_registrada(
+            operacion.id_llamada
+        )
+
+        if llamada is None:
+            raise RuntimeError(
+                "La llamada reclasificada no existe."
+            )
+
+        if operacion.prioridad_anterior is None:
+            raise RuntimeError(
+                "No existe prioridad anterior."
+            )
+
+        if operacion.prioridad_nueva is None:
+            raise RuntimeError(
+                "No existe prioridad nueva."
+            )
+
+        if operacion.posicion_anterior is None:
+            raise RuntimeError(
+                "No existe posición anterior."
+            )
+
+        cola_actual = self._obtener_cola(
+            operacion.prioridad_nueva
+        )
+
+        eliminada = self._eliminar_de_cola(
+            cola_actual,
+            operacion.id_llamada
+        )
+
+        if eliminada is None:
+            raise RuntimeError(
+                "No fue posible retirar la llamada "
+                "de su prioridad actual."
+            )
+
+        llamada.prioridad = (
+            operacion.prioridad_anterior
+        )
+
+        if operacion.estado_anterior is not None:
+            llamada.estado = operacion.estado_anterior
+
+        cola_anterior = self._obtener_cola(
+            operacion.prioridad_anterior
+        )
+
+        cola_anterior.insertar_en_posicion(
+            llamada,
+            operacion.posicion_anterior
+        )
+    
+    def _deshacer_atencion(
+        self,
+        operacion: Operacion
+    ) -> None:
+        """
+        Devuelve la llamada en atención a su cola original.
+        """
+
+        llamada = self.llamada_en_atencion
+
+        if (
+            llamada is None
+            or llamada.id_llamada
+            != operacion.id_llamada
+        ):
+            raise RuntimeError(
+                "La llamada indicada no está en atención."
+            )
+
+        if operacion.prioridad_anterior is None:
+            raise RuntimeError(
+                "No existe prioridad anterior."
+            )
+
+        if operacion.estado_anterior is None:
+            raise RuntimeError(
+                "No existe estado anterior."
+            )
+
+        posicion = (
+            operacion.posicion_anterior
+            if operacion.posicion_anterior is not None
+            else 0
+        )
+
+        llamada.estado = (
+            operacion.estado_anterior
+        )
+
+        llamada.prioridad = (
+            operacion.prioridad_anterior
+        )
+
+        cola = self._obtener_cola(
+            operacion.prioridad_anterior
+        )
+
+        cola.insertar_en_posicion(
+            llamada,
+            posicion
+        )
+
+        self.llamada_en_atencion = None
+    
+    def _deshacer_finalizacion(
+        self,
+        operacion: Operacion
+    ) -> None:
+        """
+        Devuelve una llamada finalizada al estado
+        EN_ATENCION.
+        """
+
+        if self.llamada_en_atencion is not None:
+            raise RuntimeError(
+                "Ya existe una llamada en atención."
+            )
+
+        llamada = self.obtener_llamada_registrada(
+            operacion.id_llamada
+        )
+
+        if llamada is None:
+            raise RuntimeError(
+                "La llamada finalizada no existe."
+            )
+
+        if operacion.estado_anterior is None:
+            raise RuntimeError(
+                "No existe estado anterior."
+            )
+
+        llamada.estado = (
+            operacion.estado_anterior
+        )
+
+        if operacion.prioridad_anterior is not None:
+            llamada.prioridad = (
+                operacion.prioridad_anterior
+            )
+
+        self.llamada_en_atencion = llamada
+    
     
     def _generar_id(self):
         """
